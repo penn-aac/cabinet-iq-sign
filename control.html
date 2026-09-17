@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cabinet IQ — Sign Control</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Caveat:wght@500;600&display=swap">
+<style>
+  :root{
+    --bg:#F4F3EE; --panel:#FFFFFF; --line:#D8D5C9; --text:#181C19; --text-dim:#5E645D;
+    --accent:#41684E; --on-accent:#FFFFFF;
+    --open:#3B7350; --away:#9C6A21; --shut:#515C64; --danger:#8A4A42;
+    --shadow:0 1px 2px rgba(24,28,25,.06), 0 8px 24px -12px rgba(24,28,25,.28);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#14170F; --panel:#1D211A; --line:#333A2F; --text:#EDEFE7; --text-dim:#9AA394;
+      --accent:#8FBF9E; --on-accent:#14170F;
+      --open:#7FB893; --away:#D6A75C; --shut:#94A3AE; --danger:#D3897F;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.7);
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:Archivo,"Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+  .wrap{max-width:520px;margin:0 auto;padding:20px 18px 56px;display:flex;flex-direction:column;gap:18px}
+  h1{font-size:19px;font-weight:700;margin:0}
+
+  #pinScreen{min-height:100svh;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:20px;padding:30px 18px}
+  #pinScreen p{margin:0;font-size:14.5px;color:var(--text-dim);text-align:center}
+  .pin-dots{display:flex;gap:13px}
+  .pin-dots i{width:13px;height:13px;border-radius:50%;border:1.5px solid var(--line);display:block}
+  .pin-dots i.f{background:var(--accent);border-color:var(--accent)}
+  .pin-dots.bad i{border-color:var(--danger)}
+  .keys{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:100%;max-width:280px}
+  .keys button{padding:17px 0;border-radius:12px;background:var(--panel);border:1px solid var(--line);
+    font-size:20px;font-weight:600;box-shadow:var(--shadow)}
+  .keys button.alt{font-size:13px;font-weight:600;color:var(--text-dim)}
+  #setPinNote{font-size:12.5px;color:var(--text-dim);text-align:center;max-width:280px}
+
+  .preview{border-radius:14px;overflow:hidden;border:1px solid var(--line);box-shadow:var(--shadow)}
+  .preview-bar{display:flex;align-items:center;gap:8px;padding:9px 13px;background:var(--panel);border-bottom:1px solid var(--line)}
+  .dot{width:8px;height:8px;border-radius:50%;flex:none}
+  .preview-bar small{font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;font-weight:600;color:var(--text-dim)}
+  .preview-face{min-height:120px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:2px;padding:20px 16px;text-align:center;background:var(--p-ground);color:var(--p-ink)}
+  .preview-face[data-style="paper"]{--p-ground:#FCFCFA;--p-ink:#141412}
+  .preview-face[data-style="slate"]{--p-ground:#1B221E;--p-ink:#F3F1E8}
+  .preview-face[data-style="kraft"]{--p-ground:#C2A67F;--p-ink:#241C13}
+  .preview-face b{font-family:Caveat,cursive;font-weight:600;font-size:36px;line-height:1.05}
+  .preview-face em{font-family:Caveat,cursive;font-style:normal;font-size:19px;opacity:.7}
+  .preview-note{padding:9px 13px;background:var(--panel);font-size:12.5px;color:var(--text-dim)}
+
+  .group{display:flex;flex-direction:column;gap:9px}
+  .glabel{font-size:11.5px;font-weight:600;letter-spacing:.13em;text-transform:uppercase;color:var(--text-dim)}
+  .btn{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:15px 16px;
+    border-radius:12px;background:var(--panel);border:1px solid var(--line);box-shadow:var(--shadow);font-size:15.5px}
+  .btn .k{flex:none;width:10px;height:10px;border-radius:50%}
+  .btn .sub{margin-left:auto;font-size:12.5px;color:var(--text-dim)}
+  .chips{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .chip{padding:13px 6px;border-radius:11px;background:var(--panel);border:1px solid var(--line);
+    text-align:center;font-size:14px;font-weight:600;box-shadow:var(--shadow)}
+  .chip small{display:block;font-size:10.5px;color:var(--text-dim);margin-top:2px}
+  .row{display:flex;gap:8px}
+  .row input{flex:1;min-width:0;padding:13px;border-radius:11px;background:var(--panel);
+    border:1px solid var(--line);color:var(--text);font:inherit;font-size:15px}
+  .row button.go{flex:none;padding:0 18px;border-radius:11px;background:var(--accent);color:var(--on-accent);font-weight:600}
+  .styles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .sw{border-radius:11px;border:1px solid var(--line);overflow:hidden;box-shadow:var(--shadow)}
+  .sw[aria-pressed="true"]{border-color:var(--accent);border-width:2px}
+  .sw .swatch{height:44px;display:grid;place-items:center;font-family:Caveat,cursive;font-size:22px;font-weight:600}
+  .sw .nm{padding:6px 4px;background:var(--panel);font-size:12px;font-weight:600;text-align:center}
+  .note{font-size:12.5px;line-height:1.55;color:var(--text-dim)}
+  .err{background:var(--panel);border:1px solid var(--danger);border-radius:11px;padding:12px 14px;font-size:13.5px}
+  .err:empty{display:none}
+  .hide{display:none!important}
+</style>
+</head>
+<body>
+
+<div id="pinScreen">
+  <h1>Showroom door</h1>
+  <p id="pinPrompt">Enter the showroom code</p>
+  <div class="pin-dots" id="pinDots"><i></i><i></i><i></i><i></i></div>
+  <div class="keys" id="keys">
+    <button>1</button><button>2</button><button>3</button>
+    <button>4</button><button>5</button><button>6</button>
+    <button>7</button><button>8</button><button>9</button>
+    <button class="alt" data-k="clear">Clear</button><button>0</button><button class="alt" data-k="del">Delete</button>
+  </div>
+  <p id="setPinNote" class="hide">No code is set yet. Enter 4 digits to create one, then share it with Mike and Shannon.</p>
+</div>
+
+<div id="app" class="hide">
+  <div class="wrap">
+    <h1>Showroom door</h1>
+
+    <div class="preview">
+      <div class="preview-bar"><span class="dot" id="pvDot"></span><small id="pvLabel">Loading</small></div>
+      <div class="preview-face" id="pvFace" data-style="paper">
+        <b id="pvText">&nbsp;</b><em id="pvSub"></em>
+      </div>
+      <div class="preview-note" id="pvNote">Checking the door&hellip;</div>
+    </div>
+
+    <div class="err" id="err"></div>
+
+    <div class="group">
+      <span class="glabel">Stepping out</span>
+      <div class="chips">
+        <button class="chip" data-mins="30">30<small>min</small></button>
+        <button class="chip" data-mins="60">1<small>hour</small></button>
+        <button class="chip" data-mins="90">90<small>min</small></button>
+        <button class="chip" data-mins="120">2<small>hours</small></button>
+      </div>
+      <div class="row">
+        <input type="time" id="backTime" aria-label="Back at a specific time">
+        <button class="go" id="backGo">Back at</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <span class="glabel">Other messages</span>
+      <button class="btn" data-preset="appointment">
+        <span class="k" style="background:var(--away)"></span>With a client
+        <span class="sub">until 5:00</span>
+      </button>
+      <button class="btn" data-preset="closed">
+        <span class="k" style="background:var(--shut)"></span>Closed for the day
+        <span class="sub" id="closedSub"></span>
+      </button>
+      <button class="btn" data-preset="auto">
+        <span class="k" style="background:var(--open)"></span>Back to normal hours
+        <span class="sub">clears any message</span>
+      </button>
+      <div class="row">
+        <input type="text" id="customText" maxlength="60" placeholder="Say something else&hellip;">
+        <button class="go" id="customGo">Post</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <span class="glabel">How the sign looks</span>
+      <div class="styles">
+        <button class="sw" data-style="paper"><span class="swatch" style="background:#FCFCFA;color:#141412">Open</span><span class="nm">Paper</span></button>
+        <button class="sw" data-style="slate"><span class="swatch" style="background:#1B221E;color:#F3F1E8">Open</span><span class="nm">Slate</span></button>
+        <button class="sw" data-style="kraft"><span class="swatch" style="background:#C2A67F;color:#241C13">Open</span><span class="nm">Kraft</span></button>
+      </div>
+    </div>
+
+    <div class="group">
+      <span class="glabel">Showroom code</span>
+      <div class="row">
+        <input type="text" id="pinField" inputmode="numeric" maxlength="4" placeholder="4 digits">
+        <button class="go" id="pinSave">Change</button>
+      </div>
+      <p class="note">Share this code with anyone who should be able to post here. Changing it does not lock out this page, only future logins on other devices.</p>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script>
+"use strict";
+
+/* ============ PASTE YOUR FIREBASE CONFIG BELOW (same values as index.html) ============ */
+const firebaseConfig = {
+  apiKey: "AIzaSyAWBM2MChf2nqN6mFF5jsnH8MNaWfxy66w",
+  authDomain: "cabinet-iq-sign.firebaseapp.com",
+  projectId: "cabinet-iq-sign",
+  storageBucket: "cabinet-iq-sign.firebasestorage.app",
+  messagingSenderId: "59140766832",
+  appId: "1:59140766832:web:7ebc100dd71663d9cd88b5"
+};
+/* ======================================================================================= */
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const docRef = db.collection("status").doc("current");
+
+const TZ = "America/Detroit", OPEN_H = 10, CLOSE_H = 17;
+const DAYS = {Sun:0,Mon:1,Tue:2,Wed:3,Thu:4,Fri:5,Sat:6};
+
+function partsIn(date){
+  const f = new Intl.DateTimeFormat("en-US",{timeZone:TZ,hour12:false,weekday:"short",
+    year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit"});
+  const p={}; f.formatToParts(date).forEach(x=>{p[x.type]=x.value;});
+  if(p.hour==="24") p.hour="00";
+  return p;
+}
+function offsetMin(d){
+  const p=partsIn(d);
+  return (Date.UTC(+p.year,+p.month-1,+p.day,+p.hour,+p.minute,+p.second)-d.getTime())/60000;
+}
+function zoned(y,mo,d,h,mi){
+  const naive=Date.UTC(y,mo-1,d,h,mi,0);
+  const t=naive-offsetMin(new Date(naive))*60000;
+  return naive-offsetMin(new Date(t))*60000;
+}
+function clock(ms){
+  return new Intl.DateTimeFormat("en-US",{timeZone:TZ,hour:"numeric",minute:"2-digit"})
+    .format(new Date(ms)).replace(/\s?[AP]M$/,"");
+}
+function clockAmPm(ms){
+  return new Intl.DateTimeFormat("en-US",{timeZone:TZ,hour:"numeric",minute:"2-digit"}).format(new Date(ms));
+}
+function scheduled(now){
+  const p=partsIn(new Date(now)), dow=DAYS[p.weekday], mins=+p.hour*60+ +p.minute;
+  if(dow>=1&&dow<=5){
+    if(mins>=OPEN_H*60&&mins<CLOSE_H*60) return {tone:"open",text:"Open",sub:"Come on in"};
+    return {tone:"shut",text:"Closed",sub:"Open weekdays at 10"};
+  }
+  if(dow===6) return {tone:"shut",text:"By appointment",sub:"Call or text to visit today"};
+  return {tone:"shut",text:"Closed",sub:"See you Monday at 10"};
+}
+function nextOpening(now){
+  let d = new Date(now);
+  for(let i=0;i<8;i++){
+    const p=partsIn(d), dow=DAYS[p.weekday];
+    if(dow>=1&&dow<=5){
+      const t=zoned(+p.year,+p.month,+p.day,OPEN_H,0);
+      if(t>now) return t;
+    }
+    d = new Date(d.getTime()+86400000);
+  }
+  return now+86400000;
+}
+function resolve(state, now){
+  if(state && state.mode && state.mode!=="auto"){
+    if(!state.expiresAt || now<state.expiresAt)
+      return {tone:state.tone||"away", text:state.text||"", sub:state.sub||"", override:true, until:state.expiresAt||null};
+  }
+  const s = scheduled(now); s.override=false; s.until=null; return s;
+}
+
+const TONE = {open:"var(--open)", away:"var(--away)", shut:"var(--shut)"};
+const WORD = {open:"Open", away:"Away", shut:"Closed"};
+
+const $ = id => document.getElementById(id);
+const pinScreen=$("pinScreen"), app=$("app"), pinDots=$("pinDots"), pinPrompt=$("pinPrompt"), setPinNote=$("setPinNote");
+const pvFace=$("pvFace"), pvText=$("pvText"), pvSub=$("pvSub"), pvNote=$("pvNote"), pvDot=$("pvDot"), pvLabel=$("pvLabel");
+const errBox=$("err");
+
+let current = null;
+let style = "paper";
+let storedPin = null;   // null = not loaded yet, "" = no pin set
+let entered = "";
+let unlocked = false;
+
+function showErr(m){ errBox.textContent = m||""; }
+
+function commit(patch){
+  const next = Object.assign({mode:"auto",tone:"open",text:"",sub:"",expiresAt:null,pin:storedPin||""}, current||{}, patch);
+  next.style = style;
+  next.updatedAt = new Date().toISOString();
+  current = next;
+  paintPreview();
+  showErr("");
+  docRef.set(next).catch(e => {
+    console.error(e);
+    showErr("Could not reach the sign. It still shows the last message that went through. Try again in a moment.");
+  });
+}
+function backAt(ms){
+  commit({mode:"back", tone:"away", text:"Back at "+clock(ms), sub:"Sorry to miss you", expiresAt:ms});
+}
+
+function paintPreview(){
+  const now = Date.now(), v = resolve(current, now);
+  pvFace.setAttribute("data-style", style);
+  pvText.textContent = v.text; pvSub.textContent = v.sub||"";
+  pvDot.style.background = TONE[v.tone] || "var(--shut)";
+  pvLabel.textContent = "The door says — " + (WORD[v.tone]||"");
+  if(v.override && v.until) pvNote.textContent = "Returns to “"+scheduled(v.until).text+"” at "+clockAmPm(v.until)+".";
+  else if(v.override) pvNote.textContent = "Stays up until someone clears it.";
+  else pvNote.textContent = "Following your normal hours. Nothing posted.";
+  document.querySelectorAll(".sw").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.style===style)));
+  $("closedSub").textContent = "until " + clockAmPm(nextOpening(now));
+  if(document.activeElement !== $("pinField")) $("pinField").value = storedPin || "";
+}
+
+document.querySelectorAll(".chip").forEach(b => b.addEventListener("click", () => backAt(Date.now() + (+b.dataset.mins)*60000)));
+$("backGo").addEventListener("click", () => {
+  const val = $("backTime").value;
+  if(!val){ showErr("Pick a time first."); return; }
+  const hm = val.split(":"), p = partsIn(new Date());
+  let t = zoned(+p.year, +p.month, +p.day, +hm[0], +hm[1]);
+  if(t <= Date.now()) t += 86400000;
+  backAt(t);
+});
+document.querySelectorAll("[data-preset]").forEach(b => b.addEventListener("click", () => {
+  const now = Date.now(), p = partsIn(new Date(now));
+  if(b.dataset.preset === "appointment"){
+    let end = zoned(+p.year,+p.month,+p.day,CLOSE_H,0);
+    if(end <= now) end = nextOpening(now);
+    commit({mode:"appointment", tone:"away", text:"With a client", sub:"Back later today", expiresAt:end});
+  } else if(b.dataset.preset === "closed"){
+    const open = nextOpening(now);
+    commit({mode:"closed", tone:"shut", text:"Closed for the day", sub:"Back at "+clock(open), expiresAt:open});
+  } else {
+    commit({mode:"auto", tone:"open", text:"", sub:"", expiresAt:null});
+  }
+}));
+$("customGo").addEventListener("click", () => {
+  const t = $("customText").value.trim();
+  if(!t){ showErr("Type a message first."); return; }
+  const p = partsIn(new Date());
+  let end = zoned(+p.year,+p.month,+p.day,CLOSE_H,0);
+  if(end <= Date.now()) end = nextOpening(Date.now());
+  commit({mode:"custom", tone:"away", text:t, sub:"", expiresAt:end});
+  $("customText").value = "";
+});
+document.querySelectorAll(".sw").forEach(b => b.addEventListener("click", () => { style = b.dataset.style; commit({}); }));
+$("pinSave").addEventListener("click", () => {
+  const v = $("pinField").value.replace(/\D/g,"").slice(0,4);
+  if(v && v.length < 4){ showErr("The code needs to be 4 digits, or leave it blank to remove it."); return; }
+  storedPin = v; commit({});
+  showErr("Code updated. Share it with whoever needs it.");
+});
+
+/* -------- PIN gate -------- */
+function drawDots(bad){
+  pinDots.classList.toggle("bad", !!bad);
+  Array.prototype.forEach.call(pinDots.children, (el,i) => el.classList.toggle("f", i < entered.length));
+}
+$("keys").addEventListener("click", e => {
+  const b = e.target.closest("button"); if(!b) return;
+  const k = b.dataset.k;
+  if(k === "clear"){ entered = ""; drawDots(); return; }
+  if(k === "del"){ entered = entered.slice(0,-1); drawDots(); return; }
+  if(entered.length >= 4) return;
+  entered += b.textContent.trim();
+  drawDots();
+  if(entered.length === 4){
+    if(storedPin === "" || entered === storedPin){
+      if(storedPin === "") storedPin = entered; // first-time setup: this becomes the code
+      unlock();
+    } else {
+      drawDots(true);
+      setTimeout(() => { entered=""; drawDots(); }, 500);
+    }
+  }
+});
+function unlock(){
+  unlocked = true;
+  pinScreen.classList.add("hide");
+  app.classList.remove("hide");
+  paintPreview();
+}
+
+/* -------- boot -------- */
+docRef.onSnapshot(
+  snap => {
+    if(snap.exists){
+      const data = snap.data();
+      current = data;
+      if(data.style) style = data.style;
+      const firstLoad = (storedPin === null);
+      storedPin = typeof data.pin === "string" ? data.pin : "";
+      if(firstLoad){
+        pinPrompt.textContent = storedPin ? "Enter the showroom code" : "Create a showroom code";
+        setPinNote.classList.toggle("hide", !!storedPin);
+      }
+    } else {
+      current = null;
+      if(storedPin === null){ storedPin = ""; setPinNote.classList.remove("hide"); pinPrompt.textContent = "Create a showroom code"; }
+    }
+    if(unlocked) paintPreview();
+  },
+  err => { console.error(err); showErr("Having trouble reaching the sign right now."); }
+);
+
+setInterval(() => { if(unlocked) paintPreview(); }, 15000);
+</script>
+</body>
+</html>

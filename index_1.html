@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Cabinet IQ — Door Sign</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Caveat:wght@500;600;700&display=swap">
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden;background:#FCFCFA}
+  body{font-family:Archivo,"Helvetica Neue",Arial,sans-serif}
+  .board{
+    position:fixed;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;
+    padding:5vmin 6vmin;
+    background:var(--b-ground);color:var(--b-ink);
+    transition:background-color .3s;
+  }
+  .board[data-style="paper"]{--b-ground:#FCFCFA;--b-ink:#141412;--b-rule:rgba(20,20,18,.16)}
+  .board[data-style="slate"]{--b-ground:#1B221E;--b-ink:#F3F1E8;--b-rule:rgba(243,241,232,.22)}
+  .board[data-style="kraft"]{--b-ground:#C2A67F;--b-ink:#241C13;--b-rule:rgba(36,28,19,.24)}
+  .board-main{
+    flex:1;width:100%;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:.15em;min-height:0;
+  }
+  #signText{
+    font-family:Caveat,"Bradley Hand","Segoe Script",cursive;
+    font-weight:600;line-height:1.02;text-align:center;
+    font-size:180px;margin:0;max-width:100%;
+  }
+  #signSub{
+    font-family:Caveat,"Bradley Hand","Segoe Script",cursive;
+    font-weight:500;text-align:center;opacity:.72;
+    font-size:64px;line-height:1.1;margin:0;max-width:100%;
+  }
+  #signSub:empty{display:none}
+  .board-foot{
+    flex:none;width:100%;display:flex;align-items:center;justify-content:center;
+    gap:14px;padding-top:3vmin;border-top:1px solid var(--b-rule);
+  }
+  .board-foot b{
+    font-family:Archivo,sans-serif;font-weight:700;
+    font-size:clamp(13px,2.1vmin,22px);letter-spacing:.22em;text-transform:uppercase;
+  }
+  .board-foot span{
+    font-family:Archivo,sans-serif;font-weight:400;opacity:.7;
+    font-size:clamp(11px,1.8vmin,19px);letter-spacing:.04em;
+  }
+  .board-foot i{width:1px;height:1.2em;background:var(--b-rule);flex:none}
+  #status{position:fixed;bottom:6px;right:10px;font-size:10px;color:#0002;font-family:monospace}
+</style>
+</head>
+<body>
+  <div class="board" data-style="paper" id="board">
+    <div class="board-main">
+      <p id="signText">Open</p>
+      <p id="signSub"></p>
+    </div>
+    <div class="board-foot">
+      <b>Cabinet IQ</b><i></i>
+      <span>Mon&ndash;Fri 10&ndash;5 &nbsp;&middot;&nbsp; Sat by appointment</span>
+    </div>
+  </div>
+  <div id="status"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script>
+"use strict";
+
+/* ============ PASTE YOUR FIREBASE CONFIG BELOW ============ */
+const firebaseConfig = {
+  apiKey: "AIzaSyAWBM2MChf2nqN6mFF5jsnH8MNaWfxy66w",
+  authDomain: "cabinet-iq-sign.firebaseapp.com",
+  projectId: "cabinet-iq-sign",
+  storageBucket: "cabinet-iq-sign.firebasestorage.app",
+  messagingSenderId: "59140766832",
+  appId: "1:59140766832:web:7ebc100dd71663d9cd88b5"
+};
+/* ============================================================ */
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const docRef = db.collection("status").doc("current");
+
+const TZ = "America/Detroit", OPEN_H = 10, CLOSE_H = 17;
+const DAYS = {Sun:0,Mon:1,Tue:2,Wed:3,Thu:4,Fri:5,Sat:6};
+
+function partsIn(date){
+  const f = new Intl.DateTimeFormat("en-US",{timeZone:TZ,hour12:false,weekday:"short",
+    year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit"});
+  const p={}; f.formatToParts(date).forEach(x=>{p[x.type]=x.value;});
+  if(p.hour==="24") p.hour="00";
+  return p;
+}
+function offsetMin(d){
+  const p=partsIn(d);
+  return (Date.UTC(+p.year,+p.month-1,+p.day,+p.hour,+p.minute,+p.second)-d.getTime())/60000;
+}
+function zoned(y,mo,d,h,mi){
+  const naive=Date.UTC(y,mo-1,d,h,mi,0);
+  const t=naive-offsetMin(new Date(naive))*60000;
+  return naive-offsetMin(new Date(t))*60000;
+}
+function clock(ms){
+  return new Intl.DateTimeFormat("en-US",{timeZone:TZ,hour:"numeric",minute:"2-digit"})
+    .format(new Date(ms)).replace(/\s?[AP]M$/,"");
+}
+function scheduled(now){
+  const p=partsIn(new Date(now)), dow=DAYS[p.weekday], mins=+p.hour*60+ +p.minute;
+  if(dow>=1&&dow<=5){
+    if(mins>=OPEN_H*60&&mins<CLOSE_H*60) return {tone:"open",text:"Open",sub:"Come on in"};
+    return {tone:"shut",text:"Closed",sub:"Open weekdays at 10"};
+  }
+  if(dow===6) return {tone:"shut",text:"By appointment",sub:"Call or text to visit today"};
+  return {tone:"shut",text:"Closed",sub:"See you Monday at 10"};
+}
+function resolve(state, now){
+  if(state && state.mode && state.mode!=="auto"){
+    if(!state.expiresAt || now<state.expiresAt)
+      return {tone:state.tone||"away", text:state.text||"", sub:state.sub||""};
+  }
+  return scheduled(now);
+}
+
+let current = null;
+let style = "paper";
+const board = document.getElementById("board");
+const signText = document.getElementById("signText");
+const signSub = document.getElementById("signSub");
+const statusEl = document.getElementById("status");
+
+function fitText(){
+  const host = signText.parentNode;
+  const availH = host.clientHeight, availW = host.clientWidth;
+  if(!availH) return;
+  let size = Math.min(window.innerWidth, window.innerHeight) * 0.42;
+  const apply = () => { signText.style.fontSize = size+"px"; signSub.style.fontSize=(size*0.34)+"px"; };
+  apply();
+  let guard = 0;
+  while(guard++ < 80 && (host.scrollHeight > availH+1 || signText.scrollWidth > availW+1)){
+    size *= 0.94; apply();
+    if(size < 14) break;
+  }
+}
+function paint(){
+  const v = resolve(current, Date.now());
+  board.setAttribute("data-style", style);
+  if(signText.textContent !== v.text) signText.textContent = v.text;
+  if(signSub.textContent !== (v.sub||"")) signSub.textContent = v.sub||"";
+  fitText();
+  statusEl.textContent = "updated " + new Date().toLocaleTimeString();
+}
+
+docRef.onSnapshot(
+  snap => {
+    if(snap.exists){
+      const data = snap.data();
+      current = data;
+      if(data.style) style = data.style;
+    } else {
+      current = null;
+    }
+    paint();
+  },
+  err => {
+    console.error("sign listener error", err);
+    // Keep showing the last known message rather than blanking the door.
+  }
+);
+
+window.addEventListener("resize", fitText);
+setInterval(paint, 15000); // catches schedule transitions and message expiry
+paint();
+
+// Keep the screen awake where the browser supports it (Fully Kiosk has its own setting too).
+if("wakeLock" in navigator){
+  const keepAwake = () => navigator.wakeLock.request("screen").catch(()=>{});
+  keepAwake();
+  document.addEventListener("visibilitychange", () => { if(!document.hidden) keepAwake(); });
+}
+</script>
+</body>
+</html>
